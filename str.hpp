@@ -1,0 +1,139 @@
+#pragma once
+
+#include <string>
+#include <string.h>
+#include <stdlib.h>
+
+namespace NAC {
+    class TBlob {
+    public:
+        char* Data() const {
+            return Data_;
+        }
+
+        size_t Size() const {
+            return Size_;
+        }
+
+        explicit operator std::string() const {
+            return std::string(Data(), Size());
+        }
+
+        TBlob& Reserve(const size_t size) {
+            return Reserve(size, /* exact = */true);
+        }
+
+        TBlob& Append(const size_t size, const char* data) {
+            if (size == 0) {
+                return *this;
+            }
+
+            Reserve(size, /* exact = */false);
+
+            memcpy(Data_ + Size_, data, size);
+
+            Size_ += size;
+
+            return *this;
+        }
+
+        TBlob& Append(const char* src) {
+            return Append(strlen(src), src);
+        }
+
+        TBlob& Append(const std::string& src) {
+            return Append(src.size(), src.data());
+        }
+
+        template<typename... TArgs>
+        TBlob& operator<<(TArgs&&... args) {
+            return Append(std::forward<TArgs&&>(args)...);
+        }
+
+        char operator[](const size_t index) const {
+            return Data_[index];
+        }
+
+        explicit operator bool() const {
+            return (bool)Data_;
+        }
+
+        void Reset() {
+            Data_ = nullptr;
+            Size_ = 0;
+            StorageSize_ = 0;
+            Own = true;
+        }
+
+        void Wrap(
+            const size_t size,
+            char* data,
+            bool own = false
+        ) {
+            if(Own && Data_) {
+                free(Data_);
+            }
+
+            StorageSize_ = Size_ = size;
+            Data_ = data;
+            Own = own;
+        }
+
+        TBlob() = default;
+        TBlob(const TBlob&) = delete;
+
+        TBlob(
+            const size_t size,
+            char* data,
+            bool own = false
+        ) {
+            Wrap(size, data, own);
+        }
+
+        TBlob(TBlob&& right) {
+            if (Own && Data_) {
+                free(Data_);
+            }
+
+            Data_ = right.Data_;
+            Size_ = right.Size_;
+            StorageSize_ = right.StorageSize_;
+            Own = right.Own;
+
+            right.Data_ = nullptr;
+        }
+
+        ~TBlob() {
+            if (Own && Data_) {
+                free(Data_);
+                Data_ = nullptr;
+            }
+        }
+
+    private:
+        TBlob& Reserve(const size_t size, const bool exact) {
+            Own = true;
+
+            if (Data_) {
+                const size_t newStorageSize = (Size_ + size);
+
+                if (newStorageSize > StorageSize_) {
+                    StorageSize_ = (newStorageSize * (exact ? 1 : 2));
+                    Data_ = (char*)realloc(Data_, StorageSize_);
+                }
+
+            } else {
+                Data_ = (char*)malloc(size);
+                StorageSize_ = size;
+            }
+
+            return *this;
+        }
+
+    private:
+        char* Data_ = nullptr;
+        size_t Size_ = 0;
+        size_t StorageSize_ = 0;
+        bool Own = true;
+    };
+}
