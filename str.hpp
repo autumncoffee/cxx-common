@@ -23,6 +23,25 @@ namespace NAC {
             return Reserve(size, /* exact = */true);
         }
 
+        TBlob& Shrink(const size_t size) {
+            assert(size <= Size_);
+            Size_ = size;
+
+            return *this;
+        }
+
+        TBlob& Chop(const size_t offset) {
+            assert(offset <= Size_);
+
+            TBlob tmp;
+            tmp.Reserve(Size_ - offset);
+            tmp.Append(Size_ - offset, Data_ + offset);
+
+            Wrap(tmp.Size(), tmp.Data(), /* own = */true);
+
+            return *this;
+        }
+
         TBlob& Append(const size_t size, const char* data) {
             if (size == 0) {
                 return *this;
@@ -90,17 +109,20 @@ namespace NAC {
             Wrap(size, data, own);
         }
 
-        TBlob(TBlob&& right) {
+        TBlob& operator=(const TBlob&) = delete;
+
+        TBlob& operator=(TBlob&& right) {
             if (Own && Data_) {
                 free(Data_);
             }
 
-            Data_ = right.Data_;
-            Size_ = right.Size_;
-            StorageSize_ = right.StorageSize_;
-            Own = right.Own;
+            MoveImpl(right);
 
-            right.Data_ = nullptr;
+            return *this;
+        }
+
+        TBlob(TBlob&& right) {
+            MoveImpl(right);
         }
 
         ~TBlob() {
@@ -128,6 +150,15 @@ namespace NAC {
             }
 
             return *this;
+        }
+
+        void MoveImpl(TBlob& right) {
+            Data_ = right.Data_;
+            Size_ = right.Size_;
+            StorageSize_ = right.StorageSize_;
+            Own = right.Own;
+
+            right.Data_ = nullptr;
         }
 
     private:
