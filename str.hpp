@@ -3,6 +3,7 @@
 #include <string>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 namespace NAC {
     class TBlob {
