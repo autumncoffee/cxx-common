@@ -85,6 +85,10 @@ namespace NAC {
             Own = true;
         }
 
+        bool Owning() const {
+            return Own;
+        }
+
         void Wrap(
             const size_t size,
             char* data,
