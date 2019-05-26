@@ -1,5 +1,5 @@
 #include "string_sequence.hpp"
-#include <str.hpp>
+#include "str.hpp"
 
 namespace NAC {
     void TBlobSequence::Concat(const std::shared_ptr<TBlob>& data) {
