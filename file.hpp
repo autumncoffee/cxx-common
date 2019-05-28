@@ -51,7 +51,7 @@ namespace NAC {
         }
 
         char* Data() const {
-            return (const char*)Addr_;
+            return (char*)Addr_;
         }
 
         size_t Size() const {
