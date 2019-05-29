@@ -39,6 +39,7 @@ namespace NAC {
             tmp.Append(Size_ - offset, Data_ + offset);
 
             Wrap(tmp.Size(), tmp.Data(), /* own = */true);
+            tmp.Reset();
 
             return *this;
         }
