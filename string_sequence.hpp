@@ -30,7 +30,7 @@ namespace NAC {
         TBlobSequence(TBlobSequence&&) = default;
 
         template<typename... TArgs>
-        TBlobSequence Construct(TArgs&&... args) {
+        static TBlobSequence Construct(TArgs&&... args) {
             TBlobSequence out;
             out.Concat(std::forward<TArgs>(args)...);
 
