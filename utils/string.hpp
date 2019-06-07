@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string>
 #include <string.h>
+#include <sstream>
+#include <ac-common/str.hpp>
+#include <utility>
 
 namespace NAC {
     namespace NStringUtils {
@@ -76,6 +79,30 @@ namespace NAC {
             );
 
             out.resize(newSize);
+        }
+
+        template<typename T>
+        void FromString(const size_t size, const char* data, T& out) {
+            std::stringstream ss;
+            ss.write(data, size);
+            ss >> out;
+        }
+
+        template<typename T>
+        void FromString(const std::string& in, T& out) {
+            FromString(in.size(), in.data(), out);
+        }
+
+        template<typename T>
+        void FromString(const TBlob& in, T& out) {
+            FromString(in.Size(), in.Data(), out);
+        }
+
+        template<typename T, typename... TArgs>
+        T FromString(TArgs&&... args) {
+            T out;
+            FromString(std::forward<TArgs>(args)..., out);
+            return out;
         }
     }
 }
