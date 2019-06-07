@@ -56,7 +56,7 @@ namespace NAC {
     }
 
     TFile::~TFile() {
-        if (Ok) {
+        if (Ok && Addr_) {
             munmap(Addr_, Len_);
         }
 
