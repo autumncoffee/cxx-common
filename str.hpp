@@ -104,12 +104,28 @@ namespace NAC {
             Own = own;
         }
 
+        void Wrap(
+            const size_t size,
+            const char* data,
+            bool own = false
+        ) {
+            Wrap(size, (char*)data, own);
+        }
+
         TBlob() = default;
         TBlob(const TBlob&) = delete;
 
         TBlob(
             const size_t size,
             char* data,
+            bool own = false
+        ) {
+            Wrap(size, data, own);
+        }
+
+        TBlob(
+            const size_t size,
+            const char* data,
             bool own = false
         ) {
             Wrap(size, data, own);
