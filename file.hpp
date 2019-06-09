@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include <sys/types.h>
+#include <string.h>
+#include <utility>
 
 namespace NAC {
     class TFile {
@@ -9,15 +12,21 @@ namespace NAC {
             ACCESS_INFO,
             ACCESS_RDONLY,
             ACCESS_RDWR,
+            ACCESS_CREATE,
+            ACCESS_TMP,
         };
 
     public:
         TFile() = delete;
         TFile(const TFile&) = delete;
-        TFile(const std::string& path, EAccess access = ACCESS_RDONLY);
+        TFile(const std::string& path, EAccess access = ACCESS_RDONLY, mode_t mode = 0644);
 
-        bool IsOK() const {
+        explicit operator bool() const {
             return Ok;
+        }
+
+        const std::string& Path() const {
+            return Path_;
         }
 
         ~TFile();
@@ -27,6 +36,7 @@ namespace NAC {
             Len_ = right.Len_;
             Addr_ = right.Addr_;
             Ok = right.Ok;
+            Access = right.Access;
 
             right.Fh = -1;
             right.Len_ = 0;
@@ -41,6 +51,7 @@ namespace NAC {
             Len_ = right.Len_;
             Addr_ = right.Addr_;
             Ok = right.Ok;
+            Access = right.Access;
 
             right.Fh = -1;
             right.Len_ = 0;
@@ -58,10 +69,42 @@ namespace NAC {
             return Len_;
         }
 
+        char operator[](const size_t index) const {
+            return Data()[index];
+        }
+
+        void Resize(off_t length);
+        void Stat();
+        void Map();
+
+        bool MSync() const;
+        bool FSync() const;
+
+        TFile& Append(const size_t size, const char* data);
+
+        TFile& Append(const char* src) {
+            return Append(strlen(src), src);
+        }
+
+        TFile& Append(const std::string& src) {
+            return Append(src.size(), src.data());
+        }
+
+        template<typename... TArgs>
+        TFile& operator<<(TArgs&&... args) {
+            return Append(std::forward<TArgs&&>(args)...);
+        }
+
+    private:
+        int OpenAccess() const;
+        int MMapAccess() const;
+
     private:
         int Fh = -1;
         size_t Len_ = 0;
         void* Addr_ = nullptr;
         bool Ok = false;
+        EAccess Access;
+        std::string Path_;
     };
 }
