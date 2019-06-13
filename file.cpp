@@ -183,4 +183,23 @@ namespace NAC {
 
         Len_ = buf.st_size;
     }
+
+    void TFile::Seek(off_t offset, int whence) {
+        if (!Ok || (Fh == -1)) {
+            return;
+        }
+
+        if (lseek(Fh, offset, whence) == -1) {
+            perror("lseek");
+            Ok = false;
+        }
+    }
+
+    void TFile::SeekToEnd() {
+        Seek(0, SEEK_END);
+    }
+
+    void TFile::SeekToStart() {
+        Seek(0, SEEK_SET);
+    }
 }

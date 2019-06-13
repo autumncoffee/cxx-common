@@ -74,6 +74,9 @@ namespace NAC {
         }
 
         void Resize(off_t length);
+        void Seek(off_t offset, int whence);
+        void SeekToEnd();
+        void SeekToStart();
         void Stat();
         void Map();
 
