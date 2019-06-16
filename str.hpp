@@ -16,6 +16,10 @@ namespace NAC {
             return Size_;
         }
 
+        size_t Capacity() const {
+            return StorageSize_;
+        }
+
         explicit operator std::string() const {
             return std::string(Data(), Size());
         }
@@ -152,6 +156,41 @@ namespace NAC {
                 free(Data_);
                 Data_ = nullptr;
             }
+        }
+
+        int Cmp(const size_t size, const char* data) const {
+            if (Size() == size) {
+                return memcmp(Data(), data, size);
+
+            } else if (Size() < size) {
+                return -1;
+
+            } else {
+                return 1;
+            }
+        }
+
+        int Cmp(const TBlob& right) const {
+            return Cmp(right.Size(), right.Data());
+        }
+
+        int Cmp(const std::string& right) const {
+            return Cmp(right.size(), right.data());
+        }
+
+        template<typename T>
+        bool operator<(const T& right) const {
+            return Cmp(right) < 0;
+        }
+
+        template<typename T>
+        bool operator==(const T& right) const {
+            return Cmp(right) == 0;
+        }
+
+        template<typename T>
+        bool operator>(const T& right) const {
+            return Cmp(right) > 0;
         }
 
     private:
