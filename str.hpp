@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <algorithm>
 
 namespace NAC {
     class TBlob {
@@ -159,14 +160,21 @@ namespace NAC {
         }
 
         int Cmp(const size_t size, const char* data) const {
-            if (Size() == size) {
-                return memcmp(Data(), data, size);
+            const int rv(memcmp(Data(), data, std::min(Size(), size)));
 
-            } else if (Size() < size) {
-                return -1;
+            if (rv == 0) {
+                if (Size() == size) {
+                    return 0;
+
+                } else if (Size() < size) {
+                    return -1;
+
+                } else {
+                    return 1;
+                }
 
             } else {
-                return 1;
+                return rv;
             }
         }
 
@@ -191,6 +199,38 @@ namespace NAC {
         template<typename T>
         bool operator>(const T& right) const {
             return Cmp(right) > 0;
+        }
+
+        bool StartsWith(const size_t size, const char* data) const {
+            if (Size() < size) {
+                return false;
+            }
+
+            return (memcmp(Data(), data, size) == 0);
+        }
+
+        bool StartsWith(const TBlob& right) const {
+            return StartsWith(right.Size(), right.Data());
+        }
+
+        bool StartsWith(const std::string& right) const {
+            return StartsWith(right.size(), right.data());
+        }
+
+        int PrefixCmp(const size_t size, const char* data) const {
+            if (StartsWith(size, data)) {
+                return 0;
+            }
+
+            return Cmp(size, data);
+        }
+
+        int PrefixCmp(const TBlob& right) const {
+            return PrefixCmp(right.Size(), right.Data());
+        }
+
+        int PrefixCmp(const std::string& right) const {
+            return PrefixCmp(right.size(), right.data());
         }
 
     private:
