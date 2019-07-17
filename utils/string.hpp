@@ -6,6 +6,7 @@
 #include <sstream>
 #include <ac-common/str.hpp>
 #include <utility>
+#include <vector>
 
 namespace NAC {
     namespace NStringUtils {
@@ -54,5 +55,25 @@ namespace NAC {
         std::string&& ToLower(std::string&&);
         void ToLower(std::string&);
         std::string ToLower(const std::string&);
+
+        TBlob NextTok(size_t size, const char* data, const char delim);
+
+        static inline TBlob NextTok(const std::string& data, const char delim) {
+            return NextTok(data.size(), data.data(), delim);
+        }
+
+        static inline TBlob NextTok(const TBlob& data, const char delim) {
+            return NextTok(data.Size(), data.Data(), delim);
+        }
+
+        std::vector<TBlob> Split(size_t size, const char* data, const char delim);
+
+        static inline std::vector<TBlob> Split(const std::string& data, const char delim) {
+            return Split(data.size(), data.data(), delim);
+        }
+
+        static inline std::vector<TBlob> Split(const TBlob& data, const char delim) {
+            return Split(data.Size(), data.Data(), delim);
+        }
     }
 }

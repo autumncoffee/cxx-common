@@ -91,5 +91,35 @@ namespace NAC {
             ToLower(out);
             return out;
         }
+
+        TBlob NextTok(size_t size, const char* data, const char delim) {
+            for (size_t i = 0; i < size; ++i) {
+                if (data[i] == delim) {
+                    return TBlob(i, data);
+                }
+            }
+
+            return TBlob(size, data);
+        }
+
+        std::vector<TBlob> Split(size_t size, const char* data, const char delim) {
+            std::vector<TBlob> out;
+
+            while (size > 0) {
+                auto&& part = NextTok(size, data, delim);
+
+                if (part.Size() < size) {
+                    size -= 1;
+                    data += 1;
+                }
+
+                size -= part.Size();
+                data += part.Size();
+
+                out.emplace_back(std::move(part));
+            }
+
+            return out;
+        }
     }
 }
