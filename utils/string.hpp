@@ -28,6 +28,15 @@ namespace NAC {
             const char* alphabet = " \r"
         );
 
+        static inline void Strip(
+            const std::string& in,
+            std::string& out,
+            const size_t alphabetSize = 2,
+            const char* alphabet = " \r"
+        ) {
+            Strip(in.size(), in.data(), out, alphabetSize, alphabet);
+        }
+
         template<typename T>
         void FromString(const size_t size, const char* data, T& out) {
             std::stringstream ss;
