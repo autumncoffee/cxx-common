@@ -14,6 +14,7 @@ namespace NAC {
             ACCESS_RDWR,
             ACCESS_CREATE,
             ACCESS_TMP,
+            ACCESS_CREATEX,
         };
 
     public:

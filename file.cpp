@@ -42,7 +42,7 @@ namespace NAC {
 
         Ok = true;
 
-        if (Access == ACCESS_CREATE) {
+        if ((Access == ACCESS_CREATE) || (Access == ACCESS_CREATEX)) {
             return;
         }
 
@@ -57,7 +57,9 @@ namespace NAC {
                 : (O_RDWR | (
                     (Access == ACCESS_CREATE)
                         ? O_CREAT
-                        : 0
+                        : (Access == ACCESS_CREATEX)
+                            ? (O_CREAT | O_EXCL)
+                            : 0
                 ))
         );
     }
