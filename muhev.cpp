@@ -104,7 +104,6 @@ namespace NAC {
 #ifdef __linux__
             TInternalEvStruct event = { 0 };
             event.events = 0;
-            event.data.ptr = spec.Ctx;
             event.data.fd = spec.Ident;
 
             if (spec.Filter & MUHEV_FILTER_READ) {
@@ -128,6 +127,8 @@ namespace NAC {
                 perror("epoll_ctl");
                 abort();
             }
+
+            FdMap[spec.Ident] = spec.Ctx;
 
 #else
             if (spec.Filter & MUHEV_FILTER_READ) {
@@ -180,7 +181,7 @@ namespace NAC {
                         TEvSpec node {
 #ifdef __linux__
                             .Ident = (uintptr_t)event.data.fd,
-                            .Ctx = event.data.ptr,
+                            .Ctx = FdMap.at(event.data.fd),
 
 #else
                             .Ident = event.ident,
@@ -242,6 +243,8 @@ namespace NAC {
                 perror("epoll_ctl");
                 abort();
             }
+
+            FdMap.erase(ident);
 
 #else
             RemoveEventKqueueImpl(QueueId, EVFILT_READ, ident);

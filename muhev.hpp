@@ -4,6 +4,7 @@
 #include <vector>
 
 #ifdef __linux__
+    #include <unordered_map>
     struct epoll_event;
 
 #else
@@ -40,6 +41,10 @@ namespace NAC {
         class TLoop {
         private:
             int QueueId;
+
+#ifdef __linux__
+            std::unordered_map<int, void*> FdMap;
+#endif
 
         public:
             TLoop();
