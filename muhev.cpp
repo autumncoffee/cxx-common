@@ -141,24 +141,16 @@ namespace NAC {
         }
 
         bool TLoop::Wait(std::vector<TEvSpec>& out) {
-            std::vector<TInternalEvStruct> list;
-
-            if (out.capacity() > 0) {
-                list.reserve(out.capacity());
-
-            } else {
-                list.reserve(100);
-            }
-
-            auto rawData = list.data();
+            const size_t listSize(out.capacity() > 0 ? out.capacity() : 100);
+            TInternalEvStruct list[listSize];
 
             while (true) {
 #ifdef __linux__
                 // NUtils::cluck(1, "wait()");
                 int triggeredCount = epoll_wait(
                     QueueId,
-                    rawData,
-                    list.capacity(),
+                    list,
+                    listSize,
                     24 * 60 * 60
                 );
 
@@ -167,8 +159,8 @@ namespace NAC {
                     QueueId,
                     nullptr,
                     0,
-                    rawData,
-                    list.capacity(),
+                    list,
+                    listSize,
                     nullptr
                 );
 #endif
@@ -183,7 +175,7 @@ namespace NAC {
 
                 } else {
                     for (size_t i = 0; i < triggeredCount; ++i) {
-                        const auto& event = rawData[i];
+                        const auto& event = list[i];
 
                         TEvSpec node {
 #ifdef __linux__
