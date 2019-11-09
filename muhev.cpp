@@ -5,201 +5,256 @@
 #include <errno.h>
 
 #ifdef __linux__
-#include <sys/epoll.h>
-#include <sys/ioctl.h>
-#include <utility>
+    #include <sys/epoll.h>
+    #include <sys/ioctl.h>
+    #include <utility>
 #else
-#include <sys/types.h>
-#include <sys/event.h>
+    #include <sys/types.h>
+    #include <sys/event.h>
 #endif
 
 namespace NAC {
     namespace NMuhEv {
-        TEvSpec GetEvent(const TEvList& list, int index) {
-            const auto& event = (list.Triggered.get())[index];
-
-            TEvSpec out {
-        #ifdef __linux__
-                .Ident = (uintptr_t)event.data.fd,
-                .Ctx = list.FdMap.at(event.data.fd),
-        #else
-                .Ident = event.ident,
-                .Ctx = event.udata,
-        #endif
-                .Filter = MUHEV_FILTER_NONE,
-                .Flags = MUHEV_FLAG_NONE,
-            };
-        #ifdef __linux__
-            // NUtils::cluck(1, "woot");
-            if(event.events & EPOLLIN)
-                out.Filter |= MUHEV_FILTER_READ;
-
-            if(event.events & EPOLLOUT)
-                out.Filter |= MUHEV_FILTER_WRITE;
-        #else
-            switch(event.filter) {
-                case EVFILT_READ:
-                    out.Filter = MUHEV_FILTER_READ;
-                    break;
-                case EVFILT_WRITE:
-                    out.Filter = MUHEV_FILTER_WRITE;
-                    break;
-                default:
-                    out.Flags |= MUHEV_FLAG_ERROR;
-            }
-
-            if(event.flags & EV_ERROR) {
-                out.Flags |= MUHEV_FLAG_ERROR;
-            }
-
-            if(event.flags & EV_EOF) {
-                out.Flags |= MUHEV_FLAG_EOF;
-            }
-        #endif
-            return out;
-        }
-
         namespace {
-            static inline std::shared_ptr<TInternalEvStruct> MakeIntEvList(int count) {
-                return std::shared_ptr<TInternalEvStruct>(
-                    new TInternalEvStruct[count],
-                    std::default_delete<TInternalEvStruct[]>()
-                );
-            }
+#ifndef __linux__
+            static inline void AddEventKqueueImpl(int queueId, int filter, const TEvSpec& spec) {
+                TInternalEvStruct event;
 
-        #ifndef __linux__
-            static inline void AddEventKqueueImpl(int filter, const TEvSpec& spec, TInternalEvStruct* event) {
                 EV_SET(
-                    event,
+                    &event,
                     spec.Ident,
                     filter,
-                    EV_ADD | EV_ENABLE | EV_ONESHOT,
+                    EV_ADD | EV_ENABLE,
                     0,
                     0,
                     0
                 );
 
-                event->udata = spec.Ctx;
-            }
-        #endif
-        }
+                event.udata = spec.Ctx;
 
-        TEvList MakeEvList(int count) {
-        #ifdef __linux__
-            std::unordered_map<uintptr_t, void*> fdMap;
-            fdMap.reserve(count);
-        #else
-            count *= 2;
-        #endif
-            return TEvList {
-                .Count = count,
-                .Pos = 0,
-        #ifdef __linux__
-                .Events = std::shared_ptr<TInternalEvStruct>(),
-                .Triggered = MakeIntEvList(count),
-                .FdMap = std::move(fdMap),
-        #else
-                .Events = MakeIntEvList(count),
-                .Triggered = MakeIntEvList(count),
-        #endif
-            };
+                while (kevent(
+                    queueId,
+                    &event,
+                    1,
+                    nullptr,
+                    0,
+                    nullptr
+                ) != 0) {
+                    if (errno != EINTR) {
+                        perror("kevent");
+                        abort();
+                    }
+                }
+            }
+
+            static inline void RemoveEventKqueueImpl(int queueId, int filter, int ident) {
+                TInternalEvStruct event;
+
+                EV_SET(
+                    &event,
+                    ident,
+                    filter,
+                    EV_DELETE,
+                    0,
+                    0,
+                    0
+                );
+
+                while (kevent(
+                    queueId,
+                    &event,
+                    1,
+                    nullptr,
+                    0,
+                    nullptr
+                ) != 0) {
+                    if (errno == ENOENT) {
+                        return;
+                    }
+
+                    if (errno != EINTR) {
+                        perror("kevent");
+                        abort();
+                    }
+                }
+            }
+#endif
         }
 
         TLoop::TLoop() {
-        #ifdef __linux__
+#ifdef __linux__
             QueueId = epoll_create(0x1);
-        #else
+#else
             QueueId = kqueue();
-        #endif
-            if(QueueId == -1) {
+#endif
+
+            if (QueueId == -1) {
                 perror("kqueue");
                 abort();
             }
         }
 
         TLoop::~TLoop() {
-            if(close(QueueId) == -1) {
+            if (close(QueueId) == -1) {
                 perror("close");
             }
         }
 
-        void TLoop::AddEvent(const TEvSpec& spec, TEvList& list) {
-        #ifdef __linux__
+        void TLoop::AddEvent(const TEvSpec& spec, bool mod) {
+#ifdef __linux__
             TInternalEvStruct event = { 0 };
-            event.events = EPOLLONESHOT;
+            event.events = 0;
+            event.data.ptr = spec.Ctx;
             event.data.fd = spec.Ident;
 
-            if(spec.Filter & MUHEV_FILTER_READ)
+            if (spec.Filter & MUHEV_FILTER_READ) {
                 event.events |= EPOLLIN;
+            }
 
-            if(spec.Filter & MUHEV_FILTER_WRITE)
+            if (spec.Filter & MUHEV_FILTER_WRITE) {
                 event.events |= EPOLLOUT;
+            }
 
-            if(
-                (epoll_ctl(QueueId, EPOLL_CTL_MOD, spec.Ident, &event) != 0)
+            if (
+                (epoll_ctl(QueueId, (mod ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), spec.Ident, &event) != 0)
                 && (
                     (
-                        (errno == ENOENT)
-                        && (epoll_ctl(QueueId, EPOLL_CTL_ADD, spec.Ident, &event) != 0)
+                        (errno == (mod ? ENOENT : EEXIST))
+                        && (epoll_ctl(QueueId, (mod ? EPOLL_CTL_ADD : EPOLL_CTL_MOD), spec.Ident, &event) != 0)
                     )
-                    || (errno != ENOENT)
+                    || (errno != (mod ? ENOENT : EEXIST))
                 )
             ) {
                 perror("epoll_ctl");
                 abort();
             }
 
-            ++list.Pos;
-            list.FdMap[spec.Ident] = spec.Ctx;
-        #else
-            if(spec.Filter & MUHEV_FILTER_READ) {
-                auto& event = (list.Events.get())[list.Pos++];
-                AddEventKqueueImpl(EVFILT_READ, spec, &event);
+#else
+            if (spec.Filter & MUHEV_FILTER_READ) {
+                AddEventKqueueImpl(QueueId, EVFILT_READ, spec);
             }
 
-            if(spec.Filter & MUHEV_FILTER_WRITE) {
-                auto& event = (list.Events.get())[list.Pos++];
-                AddEventKqueueImpl(EVFILT_WRITE, spec, &event);
+            if (spec.Filter & MUHEV_FILTER_WRITE) {
+                AddEventKqueueImpl(QueueId, EVFILT_WRITE, spec);
             }
-        #endif
+#endif
         }
 
-        int TLoop::Wait(TEvList& list) {
-            int triggeredCount = 0;
+        bool TLoop::Wait(std::vector<TEvSpec>& out) {
+            std::vector<TInternalEvStruct> list;
 
-            if(list.Pos < 1) {
-                return triggeredCount;
+            if (out.capacity() > 0) {
+                list.reserve(out.capacity());
+
+            } else {
+                list.reserve(100);
             }
 
-            while(true) {
-        #ifdef __linux__
+            auto rawData = list.data();
+
+            while (true) {
+#ifdef __linux__
                 // NUtils::cluck(1, "wait()");
-                triggeredCount = epoll_wait(
+                int triggeredCount = epoll_wait(
                     QueueId,
-                    list.Triggered.get(),
-                    list.Pos,
+                    rawData,
+                    list.capacity(),
                     24 * 60 * 60
                 );
-        #else
-                triggeredCount = kevent(
+
+#else
+                int triggeredCount = kevent(
                     QueueId,
-                    list.Events.get(),
-                    list.Pos,
-                    list.Triggered.get(),
-                    list.Pos,
+                    nullptr,
+                    0,
+                    rawData,
+                    list.capacity(),
                     nullptr
                 );
-        #endif
-                if(triggeredCount < 0) {
-                    if(errno != EINTR) {
+#endif
+
+                if (triggeredCount < 0) {
+                    if (errno != EINTR) {
                         perror("kevent");
                         abort();
                     }
 
+                    return false;
+
                 } else {
-                    return triggeredCount;
+                    for (size_t i = 0; i < triggeredCount; ++i) {
+                        const auto& event = rawData[i];
+
+                        TEvSpec node {
+#ifdef __linux__
+                            .Ident = (uintptr_t)event.data.fd,
+                            .Ctx = event.data.ptr,
+
+#else
+                            .Ident = event.ident,
+                            .Ctx = event.udata,
+#endif
+
+                            .Filter = MUHEV_FILTER_NONE,
+                            .Flags = MUHEV_FLAG_NONE,
+                        };
+
+#ifdef __linux__
+                        if (event.events & EPOLLIN) {
+                            node.Filter |= MUHEV_FILTER_READ;
+                        }
+
+                        if (event.events & EPOLLOUT) {
+                            node.Filter |= MUHEV_FILTER_WRITE;
+                        }
+
+#else
+                        switch (event.filter) {
+                            case EVFILT_READ:
+                                node.Filter = MUHEV_FILTER_READ;
+                                break;
+
+                            case EVFILT_WRITE:
+                                node.Filter = MUHEV_FILTER_WRITE;
+                                break;
+
+                            default:
+                                node.Flags |= MUHEV_FLAG_ERROR;
+                        }
+
+                        if (event.flags & EV_ERROR) {
+                            node.Flags |= MUHEV_FLAG_ERROR;
+                        }
+
+                        if (event.flags & EV_EOF) {
+                            node.Flags |= MUHEV_FLAG_EOF;
+                        }
+#endif
+
+                        out.emplace_back(std::move(node));
+                    }
+
+                    return true;
                 }
             }
+        }
+
+        void TLoop::RemoveEvent(uintptr_t ident) {
+#ifdef __linux__
+            TInternalEvStruct event = { 0 };
+
+            if (
+                (epoll_ctl(QueueId, EPOLL_CTL_DEL, ident, &event) != 0)
+                && (errno != ENOENT)
+            ) {
+                perror("epoll_ctl");
+                abort();
+            }
+
+#else
+            RemoveEventKqueueImpl(QueueId, EVFILT_READ, ident);
+            RemoveEventKqueueImpl(QueueId, EVFILT_WRITE, ident);
+#endif
         }
     }
 }

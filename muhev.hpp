@@ -1,12 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #ifdef __linux__
-#include <unordered_map>
-struct epoll_event;
+    struct epoll_event;
+
 #else
-struct kevent;
+    struct kevent;
 #endif
 
 namespace NAC {
@@ -36,19 +37,6 @@ namespace NAC {
         using TInternalEvStruct = struct ::kevent;
 #endif
 
-        struct TEvList {
-            int Count;
-            int Pos;
-            std::shared_ptr<TInternalEvStruct> Events;
-            std::shared_ptr<TInternalEvStruct> Triggered;
-#ifdef __linux__
-            std::unordered_map<uintptr_t, void*> FdMap;
-#endif
-        };
-
-        extern TEvSpec GetEvent(const TEvList& list, int index);
-        extern TEvList MakeEvList(int count);
-
         class TLoop {
         private:
             int QueueId;
@@ -58,8 +46,10 @@ namespace NAC {
             ~TLoop();
 
         public:
-            void AddEvent(const TEvSpec& spec, TEvList& list);
-            int Wait(TEvList& list);
+            void AddEvent(const TEvSpec& spec, bool mod = true);
+            void RemoveEvent(uintptr_t ident);
+
+            bool Wait(std::vector<TEvSpec>& list);
         };
     }
 }
