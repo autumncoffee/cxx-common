@@ -133,10 +133,16 @@ namespace NAC {
 #else
             if (spec.Filter & MUHEV_FILTER_READ) {
                 AddEventKqueueImpl(QueueId, EVFILT_READ, spec);
+
+            } else {
+                RemoveEventKqueueImpl(QueueId, EVFILT_READ, spec.Ident);
             }
 
             if (spec.Filter & MUHEV_FILTER_WRITE) {
                 AddEventKqueueImpl(QueueId, EVFILT_WRITE, spec);
+
+            } else {
+                RemoveEventKqueueImpl(QueueId, EVFILT_WRITE, spec.Ident);
             }
 #endif
         }
