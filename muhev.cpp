@@ -173,12 +173,7 @@ namespace NAC {
 #endif
 
                 if (triggeredCount < 0) {
-                    if (errno != EINTR) {
-                        perror("kevent");
-                        abort();
-                    }
-
-                    return false;
+                    return (errno == EINTR);
 
                 } else {
                     for (size_t i = 0; i < triggeredCount; ++i) {
