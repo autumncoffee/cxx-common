@@ -28,7 +28,6 @@ namespace NAC {
         }
 
         if (Access == ACCESS_TMP) {
-            Access = ACCESS_CREATE;
             Fh = mkstemp(Path_.data());
 
         } else {
@@ -42,8 +41,14 @@ namespace NAC {
 
         Ok = true;
 
-        if ((Access == ACCESS_CREATE) || (Access == ACCESS_CREATEX)) {
-            return;
+        switch (Access) {
+            case ACCESS_CREATE:
+            case ACCESS_TMP:
+            case ACCESS_CREATEX:
+                return;
+
+            default:
+                break;
         }
 
         Stat();
@@ -79,6 +84,10 @@ namespace NAC {
 
         if (Fh != -1) {
             close(Fh);
+        }
+
+        if (Access == ACCESS_TMP) {
+            unlink(Path_.c_str());
         }
     }
 
