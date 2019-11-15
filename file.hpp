@@ -15,6 +15,11 @@ namespace NAC {
             ACCESS_CREATE,
             ACCESS_TMP,
             ACCESS_CREATEX,
+            ACCESS_WRONLY,
+
+            ACCESS_CREATE_FSYNC,
+            ACCESS_CREATEX_FSYNC,
+            ACCESS_WRONLY_FSYNC,
         };
 
     public:
@@ -85,6 +90,7 @@ namespace NAC {
         bool FSync() const;
 
         TFile& Append(const size_t size, const char* data);
+        TFile& Write(const off_t offset, const size_t size, const char* data);
 
         TFile& Append(const char* src) {
             return Append(strlen(src), src);
@@ -99,6 +105,14 @@ namespace NAC {
             return Append(std::forward<TArgs&&>(args)...);
         }
 
+        TFile& Write(const off_t offset, const char* src) {
+            return Write(offset, strlen(src), src);
+        }
+
+        TFile& Write(const off_t offset, const std::string& src) {
+            return Write(offset, src.size(), src.data());
+        }
+
     private:
         int OpenAccess() const;
         int MMapAccess() const;
@@ -110,5 +124,9 @@ namespace NAC {
         bool Ok = false;
         EAccess Access;
         std::string Path_;
+
+#ifndef __linux__
+        bool AutoFSync = false;
+#endif
     };
 }

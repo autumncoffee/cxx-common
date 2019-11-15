@@ -8,6 +8,29 @@
 #include <unistd.h>
 #include <sys/errno.h>
 
+#ifdef __linux__
+
+#define FSYNC_ACCESS(base) case base ## _FSYNC: \
+    Access = base; \
+    openAccess |= O_DIRECT | O_SYNC; \
+    break;
+
+#define WRITE_FSYNC_KLUDGE()
+
+#else
+
+#define FSYNC_ACCESS(base) case base ## _FSYNC: \
+    Access = base; \
+    AutoFSync = true; \
+    break;
+
+#define WRITE_FSYNC_KLUDGE() if (AutoFSync && !FSync()) { \
+    Ok = false; \
+    break; \
+}
+
+#endif
+
 namespace NAC {
     TFile::TFile(const std::string& path, EAccess access, mode_t mode)
         : Access(access)
@@ -31,7 +54,18 @@ namespace NAC {
             Fh = mkstemp(Path_.data());
 
         } else {
-            Fh = open(Path_.c_str(), OpenAccess(), mode);
+            int openAccess = OpenAccess();
+
+            switch (Access) {
+                FSYNC_ACCESS(ACCESS_CREATE)
+                FSYNC_ACCESS(ACCESS_CREATEX)
+                FSYNC_ACCESS(ACCESS_WRONLY)
+
+                default:
+                    break;
+            }
+
+            Fh = open(Path_.c_str(), openAccess, mode);
         }
 
         if (Fh == -1) {
@@ -45,6 +79,7 @@ namespace NAC {
             case ACCESS_CREATE:
             case ACCESS_TMP:
             case ACCESS_CREATEX:
+            case ACCESS_WRONLY:
                 return;
 
             default:
@@ -59,13 +94,16 @@ namespace NAC {
         return (
             (Access == ACCESS_RDONLY)
                 ? O_RDONLY
-                : (O_RDWR | (
-                    (Access == ACCESS_CREATE)
-                        ? O_CREAT
-                        : (Access == ACCESS_CREATEX)
-                            ? (O_CREAT | O_EXCL)
-                            : 0
-                ))
+                : ((Access == ACCESS_WRONLY)
+                    ? O_WRONLY
+                    : (O_RDWR | (
+                        (Access == ACCESS_CREATE)
+                            ? O_CREAT
+                            : (Access == ACCESS_CREATEX)
+                                ? (O_CREAT | O_EXCL)
+                                : 0
+                    ))
+                )
         );
     }
 
@@ -73,7 +111,10 @@ namespace NAC {
         return (
             (Access == ACCESS_RDONLY)
                 ? PROT_READ
-                : (PROT_READ | PROT_WRITE)
+                : ((Access == ACCESS_WRONLY)
+                    ? PROT_WRITE
+                    : (PROT_READ | PROT_WRITE)
+                )
         );
     }
 
@@ -152,6 +193,35 @@ namespace NAC {
                 }
 
             } else {
+                WRITE_FSYNC_KLUDGE()
+
+                offset += n;
+            }
+        }
+
+        return *this;
+    }
+
+    TFile& TFile::Write(const off_t offset_, const size_t size, const char* data) {
+        if (!Ok || (size == 0) || (Fh == -1)) {
+            return *this;
+        }
+
+        size_t offset(0);
+
+        while (offset < size) {
+            auto n = pwrite(Fh, data + offset, size - offset, offset_ + offset);
+
+            if (n < 0) {
+                if (errno != EINTR) {
+                    perror("pwrite");
+                    Ok = false;
+                    break;
+                }
+
+            } else {
+                WRITE_FSYNC_KLUDGE()
+
                 offset += n;
             }
         }
