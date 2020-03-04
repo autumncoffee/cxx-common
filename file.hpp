@@ -75,6 +75,10 @@ namespace NAC {
             return Len_;
         }
 
+        ino_t INodeNum() const {
+            return INode_;
+        }
+
         char operator[](const size_t index) const {
             return Data()[index];
         }
@@ -124,6 +128,7 @@ namespace NAC {
         bool Ok = false;
         EAccess Access;
         std::string Path_;
+        ino_t INode_;
 
 #ifndef __linux__
         bool AutoFSync = false;

@@ -45,6 +45,7 @@ namespace NAC {
             }
 
             Len_ = buf.st_size;
+            INode_ = buf.st_ino;
             Ok = true;
 
             return;
@@ -123,12 +124,12 @@ namespace NAC {
             munmap(Addr_, Len_);
         }
 
-        if (Fh != -1) {
-            close(Fh);
-        }
-
         if (Access == ACCESS_TMP) {
             unlink(Path_.c_str());
+        }
+
+        if (Fh != -1) {
+            close(Fh);
         }
     }
 
@@ -263,6 +264,7 @@ namespace NAC {
         }
 
         Len_ = buf.st_size;
+        INode_ = buf.st_ino;
     }
 
     void TFile::Seek(off_t offset, int whence) {
