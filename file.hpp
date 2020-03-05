@@ -4,8 +4,45 @@
 #include <sys/types.h>
 #include <string.h>
 #include <utility>
+#include "str.hpp"
 
 namespace NAC {
+    class TFileIterator {
+    public:
+        TFileIterator(int fh, size_t len)
+            : Fh(fh)
+            , Len(len)
+        {
+        }
+
+        virtual TBlob Next() = 0;
+
+    protected:
+        int Fh = -1;
+        size_t Len = 0;
+    };
+
+    class TFileChunkIterator : public TFileIterator {
+    public:
+        template<typename... TArgs>
+        TFileChunkIterator(size_t chunkSize, TArgs... args)
+            : TFileIterator(std::forward<TArgs>(args)...)
+        {
+            if ((Fh == -1) || (Len == 0) || (chunkSize == 0)) {
+                Fh = -1;
+                return;
+            }
+
+            Chunk.Reserve(chunkSize);
+        }
+
+        TBlob Next() override;
+
+    private:
+        TBlob Chunk;
+        size_t Offset = 0;
+    };
+
     class TFile {
     public:
         enum EAccess {
@@ -20,6 +57,8 @@ namespace NAC {
             ACCESS_CREATE_FSYNC,
             ACCESS_CREATEX_FSYNC,
             ACCESS_WRONLY_FSYNC,
+
+            ACCESS_RDONLY_DIRECT,
         };
 
     public:
@@ -115,6 +154,10 @@ namespace NAC {
 
         TFile& Write(const off_t offset, const std::string& src) {
             return Write(offset, src.size(), src.data());
+        }
+
+        TFileChunkIterator Chunks(size_t chunkSize) const {
+            return TFileChunkIterator(chunkSize, Fh, Len_);
         }
 
     private:

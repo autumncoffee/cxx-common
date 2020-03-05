@@ -7,12 +7,25 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/errno.h>
+#include <utility>
+#include <algorithm>
+
+
+#ifdef __linux__
+
+#define ACCESS_O_DIRECT() O_DIRECT
+
+#else
+
+#define ACCESS_O_DIRECT() 0
+
+#endif
 
 #ifdef __linux__
 
 #define FSYNC_ACCESS(base) case base ## _FSYNC: \
     Access = base; \
-    openAccess |= O_DIRECT | O_SYNC; \
+    openAccess |= ACCESS_O_DIRECT() | O_SYNC; \
     break;
 
 #define WRITE_FSYNC_KLUDGE()
@@ -32,6 +45,35 @@
 #endif
 
 namespace NAC {
+    TBlob TFileChunkIterator::Next() {
+        if ((Fh == -1) || (Offset >= Len)) {
+            return TBlob();
+        }
+
+        size_t pos(0);
+        const size_t toRead(std::min(Chunk.Capacity(), Len - Offset));
+
+        while (pos < toRead) {
+            const ssize_t rv = pread(Fh, Chunk.Data() + pos, toRead - pos, Offset + pos);
+
+            if (rv == -1) {
+                if (errno == EINTR) {
+                    continue;
+                }
+
+                perror("pread");
+                Fh = -1;
+                return TBlob();
+            }
+
+            pos += rv;
+        }
+
+        Offset += pos;
+
+        return TBlob(pos, Chunk.Data());
+    }
+
     TFile::TFile(const std::string& path, EAccess access, mode_t mode)
         : Access(access)
         , Path_(path)
@@ -88,6 +130,15 @@ namespace NAC {
         }
 
         Stat();
+
+        switch (Access) {
+            case ACCESS_RDONLY_DIRECT:
+                return;
+
+            default:
+                break;
+        }
+
         Map();
     }
 
@@ -102,7 +153,9 @@ namespace NAC {
                             ? O_CREAT
                             : (Access == ACCESS_CREATEX)
                                 ? (O_CREAT | O_EXCL)
-                                : 0
+                                : (Access == ACCESS_RDONLY_DIRECT)
+                                    ? (O_RDONLY | ACCESS_O_DIRECT())
+                                    : 0
                     ))
                 )
         );
@@ -110,7 +163,7 @@ namespace NAC {
 
     int TFile::MMapAccess() const {
         return (
-            (Access == ACCESS_RDONLY)
+            ((Access == ACCESS_RDONLY) || (Access == ACCESS_RDONLY_DIRECT))
                 ? PROT_READ
                 : ((Access == ACCESS_WRONLY)
                     ? PROT_WRITE
