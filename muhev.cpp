@@ -280,10 +280,6 @@ namespace NAC {
                             } catch (...) {
                             }
                         }
-
-                        if (!node->IsAlive()) {
-                            RemoveEvent(*node);
-                        }
                     }
 
                     return true;
