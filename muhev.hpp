@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <utility>
+#include <type_traits>
 
 namespace NAC {
     namespace NMuhEv {
@@ -80,6 +81,20 @@ namespace NAC {
             int TriggerFd_;
         };
 
+        struct TDerefAliveChecker {
+            template<typename T>
+            static bool Check(const T& value) {
+                return value->IsAlive();
+            }
+        };
+
+        struct TSimpleAliveChecker {
+            template<typename T>
+            static bool Check(const T& value) {
+                return value.IsAlive();
+            }
+        };
+
         template<typename TCb>
         class TTriggerNode : public TTriggerNodeBase {
         public:
@@ -124,6 +139,31 @@ namespace NAC {
                 AddEvent(*out, /* mod = */false);
 
                 return out;
+            }
+
+            template<typename T, typename TAliveChecker = TDerefAliveChecker>
+            bool WaitUntilComplete(T&& container) {
+                while (true) {
+                    typename std::remove_reference<T>::type tmp;
+
+                    for (auto&& client : container) {
+                        if (TAliveChecker::Check(client)) {
+                            tmp.emplace_back(std::move(client));
+                        }
+                    }
+
+                    std::swap(container, tmp);
+
+                    if (tmp.empty()) {
+                        break;
+                    }
+
+                    if (!Wait(container.size())) {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
         private:
