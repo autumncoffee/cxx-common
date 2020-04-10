@@ -17,6 +17,10 @@ namespace NAC {
 
         virtual TBlob Next() = 0;
 
+        explicit operator bool() const {
+            return ((Fh != -1) && (Len > 0));
+        }
+
     protected:
         int Fh = -1;
         size_t Len = 0;
@@ -28,7 +32,7 @@ namespace NAC {
         TFileChunkIterator(size_t chunkSize, TArgs... args)
             : TFileIterator(std::forward<TArgs>(args)...)
         {
-            if ((Fh == -1) || (Len == 0) || (chunkSize == 0)) {
+            if (!*this || (chunkSize == 0)) {
                 Fh = -1;
                 return;
             }
@@ -41,6 +45,36 @@ namespace NAC {
     private:
         TBlob Chunk;
         size_t Offset = 0;
+    };
+
+    class TFilePartIterator : public TFileChunkIterator {
+    public:
+        template<typename... TArgs>
+        TFilePartIterator(const TBlob& delimiter, size_t chunkSize, TArgs... args)
+            : TFileChunkIterator(chunkSize, std::forward<TArgs>(args)...)
+        {
+            if (!*(TFileChunkIterator*)this) {
+                Offset = -1;
+                return;
+            }
+
+            Delimiter.Reserve(delimiter.Size());
+            Delimiter.Append(delimiter.Size(), delimiter.Data());
+        }
+
+        TBlob Next() override;
+
+        explicit operator bool() const {
+            return (Offset != -1);
+        }
+
+    private:
+        TBlob Find(const TBlob&, size_t) const;
+
+    private:
+        TBlob Delimiter;
+        TBlob Buf;
+        ssize_t Offset = 0;
     };
 
     class TFile {
@@ -158,6 +192,18 @@ namespace NAC {
 
         TFileChunkIterator Chunks(size_t chunkSize) const {
             return TFileChunkIterator(chunkSize, Fh, Len_);
+        }
+
+        TFilePartIterator Parts(const TBlob& delimiter, size_t chunkSize) const {
+            return TFilePartIterator(delimiter, chunkSize, Fh, Len_);
+        }
+
+        TFilePartIterator Parts(const std::string& delimiter, size_t chunkSize) const {
+            return Parts(TBlob(delimiter.size(), delimiter.data()), chunkSize);
+        }
+
+        TFilePartIterator Lines(size_t chunkSize = 4096) const {
+            return Parts("\n", chunkSize);
         }
 
     private:

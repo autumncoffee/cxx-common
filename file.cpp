@@ -46,7 +46,7 @@
 
 namespace NAC {
     TBlob TFileChunkIterator::Next() {
-        if ((Fh == -1) || (Offset >= Len)) {
+        if (Fh == -1) {
             return TBlob();
         }
 
@@ -71,7 +71,124 @@ namespace NAC {
 
         Offset += pos;
 
+        if (Offset >= Len) {
+            Fh = -1;
+        }
+
         return TBlob(pos, Chunk.Data());
+    }
+
+    TBlob TFilePartIterator::Next() {
+        while (true) {
+            if ((Buf.Size() > 0) && (Buf.Size() >= Delimiter.Size())) {
+                auto found = Find(Buf, Offset);
+
+                if (found) {
+                    Offset += found.Size() + Delimiter.Size();
+
+                    return found;
+                }
+            }
+
+            if (Offset > 0) {
+                if (Offset < Buf.Size()) {
+                    Buf.Chop(Offset);
+
+                } else {
+                    Buf.Shrink(0);
+                }
+
+                Offset = 0;
+            }
+
+            if (!*(TFileChunkIterator*)this) {
+                TBlob out;
+
+                if (Buf.Size() > 0) {
+                    out.Wrap(Buf.Size(), Buf.Data(), /* own = */true);
+                    Buf.Reset();
+                }
+
+                Offset = -1;
+
+                return out;
+            }
+
+            auto chunk = TFileChunkIterator::Next();
+
+            if (!chunk) {
+                continue;
+            }
+
+            if (Delimiter.Size() == 0) {
+                return chunk;
+            }
+
+            if ((Buf.Size() == 0) && (chunk.Size() >= Delimiter.Size())) {
+                auto found = Find(chunk, 0);
+
+                if (found) {
+                    const size_t offset(found.Size() + Delimiter.Size());
+
+                    if (offset < chunk.Size()) {
+                        Buf.Append(chunk.Size() - offset, chunk.Data() + offset);
+                    }
+
+                    return found;
+                }
+            }
+
+            Buf.Append(chunk.Size(), chunk.Data());
+        }
+    }
+
+    TBlob TFilePartIterator::Find(const TBlob& chunk, size_t startingOffset) const {
+        const unsigned char firstByte(Delimiter[0]);
+        size_t offset(0);
+        const size_t sizeOffset(startingOffset + Delimiter.Size() - 1);
+
+        if (sizeOffset >= chunk.Size()) {
+            return TBlob();
+        }
+
+        const size_t size(chunk.Size() - sizeOffset);
+
+        while (true) {
+            if (offset >= size) {
+                return TBlob();
+            }
+
+            auto* addr = (char*)memchr(chunk.Data() + startingOffset + offset, firstByte, size - offset);
+
+            if (!addr) {
+                return TBlob();
+            }
+
+            if (Delimiter.Size() > 1) {
+                bool ok(true);
+
+                for (size_t i = 1; i < Delimiter.Size(); ++i) {
+                    if (addr[i] != Delimiter[i]) {
+                        ok = false;
+                        break;
+                    }
+                }
+
+                if (!ok) {
+                    offset = (uintptr_t)addr - (uintptr_t)chunk.Data() - startingOffset + 1;
+                    continue;
+                }
+            }
+
+            const size_t outSize((uintptr_t)addr - (uintptr_t)chunk.Data() - startingOffset);
+
+            if (outSize > 0) {
+                return TBlob(outSize, chunk.Data() + startingOffset);
+
+            } else {
+                return TBlob();
+            }
+        }
     }
 
     TFile::TFile(const std::string& path, EAccess access, mode_t mode)
