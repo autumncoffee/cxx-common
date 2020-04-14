@@ -42,6 +42,10 @@ namespace NAC {
 
         TBlob Next() override;
 
+        void Seek(size_t offset) {
+            Offset = offset;
+        }
+
     private:
         TBlob Chunk;
         size_t Offset = 0;
@@ -192,6 +196,13 @@ namespace NAC {
 
         TFileChunkIterator Chunks(size_t chunkSize) const {
             return TFileChunkIterator(chunkSize, Fh, Len_);
+        }
+
+        TBlob Chunk(size_t size, size_t offset = 0) const {
+            auto it = Chunks(size);
+            it.Seek(offset);
+
+            return it.Next();
         }
 
         TFilePartIterator Parts(const TBlob& delimiter, size_t chunkSize) const {
