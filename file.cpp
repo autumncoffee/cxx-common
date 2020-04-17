@@ -10,7 +10,6 @@
 #include <utility>
 #include <algorithm>
 
-
 #ifdef __linux__
 
 #define ACCESS_O_DIRECT() O_DIRECT
@@ -54,7 +53,7 @@ namespace NAC {
         const size_t toRead(std::min(Chunk.Capacity(), Len - Offset));
 
         while (pos < toRead) {
-            const ssize_t rv = pread(Fh, Chunk.Data() + pos, toRead - pos, Offset + pos);
+            const ssize_t rv = pread(Fh, Chunk.Data() + pos, Chunk.Capacity() - pos, Offset + pos);
 
             if (rv == -1) {
                 if (errno == EINTR) {
@@ -66,7 +65,12 @@ namespace NAC {
                 return TBlob();
             }
 
-            pos += rv;
+            if (rv <= (toRead - pos)) {
+                pos += rv;
+
+            } else {
+                pos += toRead - pos;
+            }
         }
 
         Offset += pos;
