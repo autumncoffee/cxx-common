@@ -161,6 +161,7 @@ namespace NAC {
         }
 
         void Resize(off_t length);
+        void Remap(off_t length = 0);
         void Seek(off_t offset, int whence);
         void SeekToEnd();
         void SeekToStart();

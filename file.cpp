@@ -328,6 +328,25 @@ namespace NAC {
         Map();
     }
 
+    void TFile::Remap(off_t length) {
+        if (!Ok || (Fh == -1)) {
+            return;
+        }
+
+        if (Addr_) {
+            munmap(Addr_, Len_);
+            Addr_ = nullptr;
+        }
+
+        Len_ = length;
+
+        if (Len_ == 0) {
+            Stat();
+        }
+
+        Map();
+    }
+
     bool TFile::MSync() const {
         if (Ok && Addr_) {
             if (msync(Addr_, Len_, 0) == -1) {
