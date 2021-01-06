@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef __linux__
     #include <sys/epoll.h>

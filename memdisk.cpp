@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "memdisk.hpp"
 
 namespace NAC {

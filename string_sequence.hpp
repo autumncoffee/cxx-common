@@ -3,6 +3,7 @@
 #include <memory>
 #include <deque>
 #include <utility>
+#include <stdexcept>
 #include "tmpmem.hpp"
 
 namespace NAC {

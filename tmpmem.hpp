@@ -3,6 +3,7 @@
 #include <memory>
 #include <deque>
 #include <utility>
+#include <stdlib.h>
 
 namespace NAC {
     class TTmpMem {
