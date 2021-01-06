@@ -97,6 +97,7 @@ namespace NAC {
             ACCESS_WRONLY_FSYNC,
 
             ACCESS_RDONLY_DIRECT,
+            ACCESS_RDWR_DIRECT,
         };
 
     public:
@@ -229,7 +230,7 @@ namespace NAC {
         bool Ok = false;
         EAccess Access;
         std::string Path_;
-        ino_t INode_;
+        ino_t INode_ = 0;
 
 #ifndef __linux__
         bool AutoFSync = false;

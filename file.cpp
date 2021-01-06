@@ -1,4 +1,5 @@
 #include "file.hpp"
+#include "utils/blkgetsize.hpp"
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -254,6 +255,7 @@ namespace NAC {
 
         switch (Access) {
             case ACCESS_RDONLY_DIRECT:
+            case ACCESS_RDWR_DIRECT:
                 return;
 
             default:
@@ -267,18 +269,20 @@ namespace NAC {
         return (
             (Access == ACCESS_RDONLY)
                 ? O_RDONLY
-                : ((Access == ACCESS_WRONLY)
-                    ? O_WRONLY
-                    : (O_RDWR | (
-                        (Access == ACCESS_CREATE)
-                            ? O_CREAT
-                            : (Access == ACCESS_CREATEX)
-                                ? (O_CREAT | O_EXCL)
-                                : (Access == ACCESS_RDONLY_DIRECT)
-                                    ? (O_RDONLY | ACCESS_O_DIRECT())
-                                    : 0
-                    ))
-                )
+                : (Access == ACCESS_RDONLY_DIRECT)
+                    ? (O_RDONLY | ACCESS_O_DIRECT())
+                    : ((Access == ACCESS_WRONLY)
+                        ? O_WRONLY
+                        : (O_RDWR | (
+                            (Access == ACCESS_CREATE)
+                                ? O_CREAT
+                                : (Access == ACCESS_CREATEX)
+                                    ? (O_CREAT | O_EXCL)
+                                    : (Access == ACCESS_RDWR_DIRECT)
+                                        ? ACCESS_O_DIRECT()
+                                        : 0
+                        ))
+                    )
         );
     }
 
@@ -359,7 +363,7 @@ namespace NAC {
     }
 
     bool TFile::FSync() const {
-        if (Ok && Addr_) {
+        if (Ok) {
             if (fsync(Fh) == -1) {
                 perror("fsync");
                 return false;
@@ -456,7 +460,21 @@ namespace NAC {
             return;
         }
 
-        Len_ = buf.st_size;
+        if (buf.st_mode & S_IFBLK) {
+            uint64_t size;
+
+            if (BlkGetSize(Fh, &size) == 0) {
+                Len_ = size;
+
+            } else {
+                perror("ioctl");
+                return;
+            }
+
+        } else {
+            Len_ = buf.st_size;
+        }
+
         INode_ = buf.st_ino;
     }
 
