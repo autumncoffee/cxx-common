@@ -1,0 +1,7 @@
+{
+  "name": "ac-cxx-common",
+  "version": "1.0.0",
+  "description": "AutumnCoffee C++ utils",
+  "main": "stub.js",
+  "private": true
+}
