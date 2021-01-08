@@ -3,6 +3,7 @@
 #include "str.hpp"
 #include "file.hpp"
 #include <memory>
+#include <stdexcept>
 
 namespace NAC {
     class TMemDisk {
