@@ -13,9 +13,7 @@ namespace NAC {
         };
 
         enum EEvFlags {
-            MUHEV_FLAG_NONE = 0,
-            MUHEV_FLAG_ERROR = 2,
-            MUHEV_FLAG_EOF = 4
+            MUHEV_FLAG_NONE = 0
         };
 
         void TriggerFd(int fd);

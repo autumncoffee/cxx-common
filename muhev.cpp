@@ -263,15 +263,7 @@ namespace NAC {
                                 break;
 
                             default:
-                                flags |= MUHEV_FLAG_ERROR;
-                        }
-
-                        if (event.flags & EV_ERROR) {
-                            flags |= MUHEV_FLAG_ERROR;
-                        }
-
-                        if (event.flags & EV_EOF) {
-                            flags |= MUHEV_FLAG_EOF;
+                                break;
                         }
 #endif
 
