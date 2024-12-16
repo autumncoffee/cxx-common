@@ -1,6 +1,7 @@
 #include "file.hpp"
 #include "utils/blkgetsize.hpp"
 
+#include <cstdint>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>

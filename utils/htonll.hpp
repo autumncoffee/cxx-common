@@ -1,6 +1,7 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <cstdint>
 
 #ifndef htonll
 #define htonll(x) ((1 == htonl(1)) ? (x) : ((uint64_t)htonl(\

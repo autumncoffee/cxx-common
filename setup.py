@@ -4,5 +4,5 @@ from distutils.core import setup
 
 setup(
     name="ac-cxx-common",
-    version="1.0.0",
+    version="1.0.3",
 );
